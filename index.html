@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Start Trainer - Apple Style</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Start Trainer - Pro Analysis</title>
     <style>
         :root {
             --accent: #FF9F0A; 
@@ -18,28 +18,29 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            margin: 0;
-            height: 100dvh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            background-color: var(--bg); color: var(--text-main);
+            margin: 0; height: 100dvh; overflow: hidden; display: flex; flex-direction: column;
         }
 
-        #cameraView, #videoReview {
+        /* 映像コンテナ（ズーム用） */
+        #videoContainer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: -2; background: #000;
+            z-index: -2; background: #000; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #cameraView, #videoReview {
+            position: absolute; width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.1s ease-out; transform-origin: center center;
         }
         #videoReview { display: none; z-index: -1; }
 
         /* ヘッダーエリア */
         .header {
-            padding: 60px 20px 20px;
+            padding: env(safe-area-inset-top, 40px) 20px 20px;
             text-align: center;
             background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
-            transition: opacity 0.3s;
+            transition: opacity 0.3s; z-index: 5;
         }
         #statusMessage {
             font-size: 0.85rem; font-weight: 600; letter-spacing: 0.15em;
@@ -52,21 +53,20 @@
 
         /* 録画バッジ */
         .rec-badge {
-            position: absolute; top: 60px; right: 20px;
+            position: absolute; top: env(safe-area-inset-top, 40px); right: 20px;
             background: rgba(0,0,0,0.5); padding: 6px 12px; border-radius: 20px;
-            display: none; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; backdrop-filter: blur(10px);
+            display: none; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; backdrop-filter: blur(10px); z-index: 5;
         }
         .dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 50% { opacity: 0.3; } }
 
         /* 下部コントロールエリア */
         .controls {
-            margin-top: auto; padding: 30px 20px 40px;
+            margin-top: auto; padding: 20px 20px env(safe-area-inset-bottom, 30px);
             background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
-            display: flex; flex-direction: column; align-items: center; gap: 20px;
+            display: flex; flex-direction: column; align-items: center; gap: 20px; z-index: 5;
         }
 
-        /* 待機時アクションバー */
         .action-bar {
             display: flex; align-items: center; justify-content: space-between;
             width: 100%; max-width: 350px;
@@ -87,63 +87,54 @@
         .btn-main .inner { width: 64px; height: 64px; border-radius: 50%; background: var(--text-main); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-main.recording .inner { width: 32px; height: 32px; border-radius: 8px; background: var(--danger); }
 
-        /* レビュー用コントロール (Apple風) */
+        /* レビュー用コントロール */
         .review-panel {
-            display: none; width: 100%; max-width: 380px; background: var(--glass);
+            display: none; width: 100%; max-width: 400px; background: var(--glass);
             padding: 20px 15px; border-radius: 24px; backdrop-filter: blur(20px);
-            flex-direction: column; gap: 20px;
+            flex-direction: column; gap: 15px;
         }
 
-        /* シークバーエリア */
-        .timeline-container { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
         .scrubber {
             -webkit-appearance: none; flex: 1; height: 5px; background: rgba(255, 255, 255, 0.2);
             border-radius: 3px; outline: none; cursor: pointer;
         }
         .scrubber::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
-            background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.5); transition: transform 0.1s;
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
         }
-        .scrubber:active::-webkit-slider-thumb { transform: scale(1.3); }
+        .icon-small { width: 18px; height: 18px; fill: var(--text-sub); }
 
-        /* スピードコントロール */
-        .speed-container { display: flex; align-items: center; gap: 10px; }
-        .speed-icon { width: 20px; height: 20px; fill: var(--text-sub); }
-
-        /* 再生アクションボタン */
-        .playback-actions { display: flex; justify-content: space-between; align-items: center; }
+        .playback-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
         .btn-play-pause {
             width: 60px; height: 60px; border-radius: 50%; background: white; color: black;
             border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         .btn-play-pause svg { width: 30px; height: 30px; fill: currentColor; }
 
-        /* 設定モーダル */
-        .modal {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 60vh;
-            background: rgba(28, 28, 30, 0.9); backdrop-filter: blur(25px); border-radius: 30px 30px 0 0; padding: 30px 20px;
-            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex; flex-direction: column; z-index: 10;
-        }
-        .modal.active { transform: translateY(0); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .modal-title { font-size: 1.2rem; font-weight: 700; }
-        .close-btn { background: #444; border: none; border-radius: 50%; width: 30px; height: 30px; color: white; font-weight: bold; cursor: pointer; }
-        
-        .file-upload-group { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 15px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
-        .file-upload-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; display: block;}
-        .file-upload-status { font-size: 0.75rem; color: var(--success); }
-        .custom-file-upload { background: var(--accent); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
-        input[type="file"] { display: none; }
-
         .false-start { color: var(--danger) !important; }
         .success { color: var(--success) !important; }
+
+        /* ★横画面（ランドスケープ）対応★ */
+        @media (orientation: landscape) {
+            .header { position: absolute; top: 0; left: 0; width: 30%; padding: 20px; text-align: left; }
+            #displayArea { font-size: 4rem; }
+            .controls {
+                position: absolute; bottom: 0; right: 0; width: 100%;
+                flex-direction: row; justify-content: flex-end; padding: 20px;
+                background: linear-gradient(to left, rgba(0,0,0,0.8) 0%, transparent 50%);
+            }
+            .action-bar { flex-direction: column; width: auto; height: 100%; gap: 20px; margin-right: 20px; }
+            .review-panel { max-width: 350px; margin-right: 20px; }
+        }
     </style>
 </head>
 <body>
 
-    <video id="cameraView" autoplay playsinline muted></video>
-    <video id="videoReview" playsinline loop></video>
+    <div id="videoContainer">
+        <video id="cameraView" autoplay playsinline muted></video>
+        <video id="videoReview" playsinline loop></video>
+    </div>
 
     <div class="rec-badge" id="recBadge"><div class="dot"></div>録画中</div>
 
@@ -153,18 +144,23 @@
     </div>
 
     <div class="controls">
-        
         <div class="review-panel" id="reviewPanel">
-            <div class="timeline-container">
+            <div class="slider-row">
                 <span id="currentTimeDisplay">0:00</span>
                 <input type="range" id="videoScrubber" class="scrubber" min="0" max="100" value="0">
                 <span id="durationDisplay">0:00</span>
             </div>
 
-            <div class="speed-container">
-                <svg class="speed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <div class="slider-row">
+                <svg class="icon-small" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                 <input type="range" id="speedSlider" class="scrubber" style="accent-color: var(--accent);" min="0.1" max="1.0" step="0.1" value="1.0">
-                <span id="speedVal" style="font-size:0.75rem; font-weight:bold; width: 35px; text-align:right;">1.0x</span>
+                <span id="speedVal" style="width: 35px; text-align:right;">1.0x</span>
+            </div>
+
+            <div class="slider-row">
+                <svg class="icon-small" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg>
+                <input type="range" id="zoomSlider" class="scrubber" style="accent-color: white;" min="1.0" max="3.0" step="0.1" value="1.0">
+                <span id="zoomVal" style="width: 35px; text-align:right;">1.0x</span>
             </div>
 
             <div class="playback-actions">
@@ -182,94 +178,58 @@
         </div>
 
         <div class="action-bar" id="actionBar">
-            <button class="btn-icon" onclick="toggleSettings()">
-                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.21-.07.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-            </button>
+            <button class="btn-icon" style="opacity: 0.5;"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22l-1.92 3.32c-.12.21-.07.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .43-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
             <button class="btn-main" id="mainBtn"><div class="inner"></div></button>
-            <button class="btn-icon" onclick="playSound('start')">
-                <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            </button>
+            <button class="btn-icon" onclick="playSound('start')"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></button>
         </div>
-        
-        <div id="hint" style="font-size: 0.75rem; color: var(--text-sub);">画面タップで反応ストップ</div>
-    </div>
-
-    <div class="modal" id="settingsModal">
-        <div class="modal-header">
-            <div class="modal-title">音声設定</div>
-            <button class="close-btn" onclick="toggleSettings()">✕</button>
-        </div>
-        <div class="file-upload-group"><div><span class="file-upload-title">1. 笛の合図</span><span class="file-upload-status" id="whistleStatus">デフォルト</span></div><label class="custom-file-upload"><input type="file" accept="audio/*" onchange="loadCustomAudio('whistle', this, 'whistleStatus')">変更</label></div>
-        <div class="file-upload-group"><div><span class="file-upload-title">2. Take your marks</span><span class="file-upload-status" id="markStatus">デフォルト</span></div><label class="custom-file-upload"><input type="file" accept="audio/*" onchange="loadCustomAudio('mark', this, 'markStatus')">変更</label></div>
-        <div class="file-upload-group"><div><span class="file-upload-title">3. スタート音</span><span class="file-upload-status" id="startStatus">デフォルト</span></div><label class="custom-file-upload"><input type="file" accept="audio/*" onchange="loadCustomAudio('start', this, 'startStatus')">変更</label></div>
     </div>
 
     <script>
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let audioBuffers = {};
         let state = 'IDLE', startTime = 0, mediaRecorder, recordedChunks = [];
+        let isSaved = false; // ★保存状態の管理
 
         const videoView = document.getElementById('cameraView'), videoReview = document.getElementById('videoReview');
-        const displayArea = document.getElementById('displayArea'), statusMessage = document.getElementById('statusMessage'), mainHeader = document.getElementById('mainHeader');
+        const displayArea = document.getElementById('displayArea'), statusMessage = document.getElementById('statusMessage');
         const mainBtn = document.getElementById('mainBtn'), actionBar = document.getElementById('actionBar');
         const reviewPanel = document.getElementById('reviewPanel'), recBadge = document.getElementById('recBadge');
         
-        // シークバー関連の要素
         const videoScrubber = document.getElementById('videoScrubber');
         const currentTimeDisplay = document.getElementById('currentTimeDisplay');
         const durationDisplay = document.getElementById('durationDisplay');
         const playPauseBtn = document.getElementById('playPauseBtn');
         const iconPlay = document.getElementById('iconPlay'), iconPause = document.getElementById('iconPause');
 
-        // 時間フォーマット関数 (例: 0:03)
-        function formatTime(seconds) {
-            if(isNaN(seconds)) return "0:00";
-            const m = Math.floor(seconds / 60);
-            const s = Math.floor(seconds % 60);
-            return `${m}:${s.toString().padStart(2, '0')}`;
+        function formatTime(sec) {
+            if(isNaN(sec)) return "0:00";
+            return `${Math.floor(sec/60)}:${Math.floor(sec%60).toString().padStart(2,'0')}`;
         }
 
-        // --- ビデオコントロール処理 ---
-        // 動画の再生位置が進むたびにシークバーを更新
+        // シークバー連動
         videoReview.addEventListener('timeupdate', () => {
             if (!videoReview.duration) return;
-            const percent = (videoReview.currentTime / videoReview.duration) * 100;
-            videoScrubber.value = percent;
+            videoScrubber.value = (videoReview.currentTime / videoReview.duration) * 100;
             currentTimeDisplay.innerText = formatTime(videoReview.currentTime);
             durationDisplay.innerText = formatTime(videoReview.duration);
         });
+        videoScrubber.addEventListener('input', (e) => { videoReview.currentTime = (e.target.value / 100) * videoReview.duration; });
 
-        // シークバーを操作したときの処理 (動画位置を移動)
-        videoScrubber.addEventListener('input', (e) => {
-            const seekTime = (e.target.value / 100) * videoReview.duration;
-            videoReview.currentTime = seekTime;
-        });
-
-        // 再生・一時停止の切り替え
+        // 再生ボタン
         playPauseBtn.onclick = () => {
-            if (videoReview.paused) {
-                videoReview.play();
-                iconPlay.style.display = 'none';
-                iconPause.style.display = 'block';
-            } else {
-                videoReview.pause();
-                iconPause.style.display = 'none';
-                iconPlay.style.display = 'block';
-            }
+            if (videoReview.paused) { videoReview.play(); iconPlay.style.display='none'; iconPause.style.display='block'; }
+            else { videoReview.pause(); iconPause.style.display='none'; iconPlay.style.display='block'; }
         };
 
-        // 動画ロード時にアイコンと時間を初期化
-        videoReview.addEventListener('loadedmetadata', () => {
-            durationDisplay.innerText = formatTime(videoReview.duration);
-        });
-
-        // スピード調整
+        // スピード＆ズーム調整
         document.getElementById('speedSlider').oninput = (e) => {
-            videoReview.playbackRate = e.target.value;
-            document.getElementById('speedVal').innerText = e.target.value + "x";
+            videoReview.playbackRate = e.target.value; document.getElementById('speedVal').innerText = e.target.value + "x";
+        };
+        document.getElementById('zoomSlider').oninput = (e) => {
+            videoReview.style.transform = `scale(${e.target.value})`; document.getElementById('zoomVal').innerText = e.target.value + "x";
         };
 
-        // --- カメラセットアップ ---
+        // カメラ設定
         async function initCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'back', width: { ideal: 1920 }, frameRate: { ideal: 60 } }, audio: false });
@@ -286,46 +246,34 @@
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'video/mp4' });
                 videoReview.src = URL.createObjectURL(blob);
+                
+                // ★保存処理（保存フラグを立てる）
                 document.getElementById('downloadBtn').onclick = () => {
-                    const a = document.createElement('a'); a.href = videoReview.src; a.download = `start_record_${Date.now()}.mp4`; a.click();
+                    isSaved = true; // 保存済みマーク
+                    const a = document.createElement('a'); a.href = videoReview.src; a.download = `swim_start_${Date.now()}.mp4`; a.click();
+                    alert("ダウンロードを開始しました。iPhoneの場合は「ファイル」アプリからカメラロールに保存できます。");
                 };
             };
         }
 
-        // --- 音声管理 ---
         async function loadDefaultAudio() {
             const files = { whistle: 'swim-whistle.wav', mark: 'swim-Take-your-marks.wav', start: 'swim-start.wav' };
             for (let key in files) {
-                try {
-                    const res = await fetch(files[key]);
-                    const buffer = await res.arrayBuffer();
-                    audioBuffers[key] = await audioCtx.decodeAudioData(buffer);
-                } catch(e) {}
+                try { const res = await fetch(files[key]); audioBuffers[key] = await audioCtx.decodeAudioData(await res.arrayBuffer()); } catch(e) {}
             }
-        }
-
-        async function loadCustomAudio(key, input, statusId) {
-            const file = input.files[0]; if (!file) return;
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                audioBuffers[key] = await audioCtx.decodeAudioData(arrayBuffer);
-                document.getElementById(statusId).innerText = file.name;
-                document.getElementById(statusId).style.color = "var(--accent)";
-            } catch (e) { alert("読込エラー"); }
         }
 
         function playSound(name) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             if (!audioBuffers[name]) return;
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffers[name]; source.connect(audioCtx.destination); source.start(0);
+            const source = audioCtx.createBufferSource(); source.buffer = audioBuffers[name]; source.connect(audioCtx.destination); source.start(0);
         }
 
-        // --- UIシーケンス ---
         mainBtn.onclick = () => { state === 'IDLE' ? startSequence() : handleInteraction(); };
 
         function startSequence() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            isSaved = false; // 新しい撮影が始まるので未保存状態にリセット
             recordedChunks = []; mediaRecorder.start();
             mainBtn.classList.add('recording'); recBadge.style.display = 'flex';
             state = 'SEQUENCE'; displayArea.className = ""; displayArea.innerText = "0.000";
@@ -335,26 +283,21 @@
             setTimeout(() => {
                 if (state !== 'SEQUENCE') return;
                 statusMessage.innerText = "TAKE YOUR MARKS"; playSound('mark');
-                const delay = Math.random() * 2000 + 3000;
                 setTimeout(() => { if(state === 'SEQUENCE') state = 'SET'; }, 1000);
-
                 setTimeout(() => {
                     if (state !== 'SET') return;
                     state = 'GO'; statusMessage.innerText = "GO!"; statusMessage.style.color = "var(--success)";
                     playSound('start'); startTime = performance.now();
-                }, delay);
+                }, Math.random() * 2000 + 3000);
             }, 8000);
         }
 
         function handleInteraction() {
             if (state === 'IDLE') return;
             if (state === 'SEQUENCE' || state === 'SET') {
-                displayArea.innerText = "FL"; displayArea.className = "false-start";
-                stopAndReview("FALSE START", "var(--danger)");
+                displayArea.innerText = "FL"; displayArea.className = "false-start"; stopAndReview("FALSE START", "var(--danger)");
             } else if (state === 'GO') {
-                const time = (performance.now() - startTime) / 1000;
-                displayArea.innerText = time.toFixed(3); displayArea.className = "success";
-                stopAndReview("REACTION", "var(--success)");
+                displayArea.innerText = ((performance.now() - startTime) / 1000).toFixed(3); displayArea.className = "success"; stopAndReview("REACTION", "var(--success)");
             }
         }
 
@@ -364,35 +307,34 @@
             statusMessage.innerText = msg; statusMessage.style.color = color;
 
             setTimeout(() => {
-                actionBar.style.display = 'none';
-                document.getElementById('hint').style.display = 'none';
-                mainHeader.style.opacity = '0'; // 映像を見やすくするためヘッダーのタイムを隠す
-                reviewPanel.style.display = 'flex';
-                videoReview.style.display = 'block';
+                actionBar.style.display = 'none'; document.getElementById('mainHeader').style.opacity = '0';
+                reviewPanel.style.display = 'flex'; videoReview.style.display = 'block';
                 
-                // アイコンを一時停止状態にして再生開始
-                iconPlay.style.display = 'none';
-                iconPause.style.display = 'block';
-                videoReview.play();
+                // ズームをリセット
+                document.getElementById('zoomSlider').value = 1.0;
+                document.getElementById('zoomVal').innerText = "1.0x";
+                videoReview.style.transform = "scale(1.0)";
+
+                iconPlay.style.display = 'none'; iconPause.style.display = 'block'; videoReview.play();
             }, 500);
         }
 
+        // ★撮影画面に戻る処理（未保存警告ダイアログ）
         function closeReview() {
+            if (!isSaved && recordedChunks.length > 0) {
+                const confirmReset = confirm("動画が保存されていません。\n戻ると現在の動画は消去されますが、よろしいですか？");
+                if (!confirmReset) return; // キャンセルした場合はそのまま
+            }
+
             videoReview.style.display = 'none'; videoReview.pause();
-            reviewPanel.style.display = 'none';
-            actionBar.style.display = 'flex';
-            document.getElementById('hint').style.display = 'block';
-            mainHeader.style.opacity = '1';
+            reviewPanel.style.display = 'none'; actionBar.style.display = 'flex';
+            document.getElementById('mainHeader').style.opacity = '1';
             statusMessage.innerText = "準備完了"; statusMessage.style.color = "var(--accent)";
             displayArea.className = ""; displayArea.innerText = "0.000";
         }
 
-        function toggleSettings() { document.getElementById('settingsModal').classList.toggle('active'); }
-
         window.addEventListener('touchstart', (e) => {
-            if (!e.target.closest('button') && !e.target.closest('.modal') && !e.target.closest('.review-panel') && !e.target.closest('input')) {
-                handleInteraction();
-            }
+            if (!e.target.closest('button') && !e.target.closest('.review-panel') && !e.target.closest('input')) handleInteraction();
         });
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleInteraction(); });
 
